@@ -1,3 +1,5 @@
-indicator_model.h5
+indicator_model*.h5
 output1.dat
 .ipynb_checkpoints/
+__pycache__/
+.idea/
