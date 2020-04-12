@@ -1,9 +1,9 @@
 import pandas as pd
-
+import datetime as dt
 
 class DataLoader(object):
     def __init__(self, file_name):
-        dateparse = lambda x, y: pd.datetime.strptime(x + ' ' + y, '%m/%d/%Y %H:%M')
+        dateparse = lambda x, y: dt.datetime.strptime(x + ' ' + y, '%m/%d/%Y %H:%M')
         self.df = pd.read_csv(file_name, parse_dates=[[0, 1]], index_col=0, skiprows=0, date_parser=dateparse)
         self.df.index.rename('Time', inplace=True)
         self.df.columns = ['open', 'high', 'low', 'close', 'volume']

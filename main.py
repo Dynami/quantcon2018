@@ -2,17 +2,20 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from loader.data import DataLoader
 from player import Player
+from models.sklearn import SkModel
+import numpy as np
 
 from models.env import Game
 import warnings
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-from tensorflow.keras.activations import relu, softmax
-from tensorflow.keras.losses import MSE
-from tensorflow.keras.optimizers import SGD, Adam
+# import tensorflow as tf
+# from tensorflow.keras.models import Sequential
+# from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+# from tensorflow.keras.activations import relu, softmax
+# from tensorflow.keras.losses import MSE
+# from tensorflow.keras.optimizers import SGD, Adam
 
 from sklearn.svm import SVC, SVR
+from sklearn.linear_model import Lasso
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -33,21 +36,27 @@ def main(debug=False):
 
     player = Player()
     # start set custom params for player
-    player.epoch = 100
+    player.epoch = 1000
+    player.batch_size=50
     # end set custom params for player
 
     _env = player.init_game(df_train)
-    hidden_size = len(_env.state)*2
-    model = Sequential()
+    # hidden_size = len(_env.state)*2
+    # model = Sequential()
+    #
+    # model.add(Dense(hidden_size, input_shape=(len(_env.state),), activation=relu))
+    # model.add(BatchNormalization())
+    # model.add(Dense(hidden_size, activation=relu))
+    # model.add(BatchNormalization())
+    # model.add(Dense(player.num_actions, activation=softmax))
+    # model.compile(Adam(lr=.005), MSE)
+    # print(model.summary())
 
-    model.add(Dense(hidden_size, input_shape=(len(_env.state),), activation=relu))
-    model.add(BatchNormalization())
-    model.add(Dense(hidden_size, activation=relu))
-    model.add(BatchNormalization())
-    model.add(Dense(player.num_actions, activation=softmax))
-    model.compile(Adam(lr=.005), MSE)
-    print(model.summary())
+    long_model = SVR(degree=2)
+    short_model = SVR(degree=2)
+    flat_model = SVR(degree=2)
 
+    model = SkModel([flat_model, long_model, short_model], input_shape=len(_env.state))
 
     #model.load_weights('indicator_model__.h5')
     stats, model, exp = player.train(df_train, model=model)

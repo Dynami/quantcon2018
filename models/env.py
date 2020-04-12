@@ -35,12 +35,14 @@ class Game(object):
         self.curr_idx += 1
         self.curr_time = self.df.index[self.curr_idx]
         self.curr_price = self.df['close'][self.curr_idx]
-        self.pnl = self.position*(self.curr_price-self.entry) / self.entry
+        self.pnl = 0 if self.entry == 0 else self.position * (self.curr_price - self.entry) / self.entry
         # if I can't calculate pnl set to zero
         if np.isnan(self.pnl):
             self.pnl = 0.0
-
-        self.side = 1 if self.curr_price > self.entry else -1
+        if(self.position):
+            self.side = 1 if self.curr_price > self.entry else -1
+        else:
+            self.side = 0
         self._assemble_state()
         _h = self.curr_time.hour - 9  # starts at 9:00 ends at 18:00
         _m = self.curr_time.minute

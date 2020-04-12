@@ -24,7 +24,7 @@ class Player(object):
         self.env = Game(df, lkbk=self.lkbk, max_game_len=self.max_game_len, init_idx=self.START_IDX, run_mode=self.run_mode)
         return self.env
 
-    def train(self, df:pd.DataFrame, fname='output.txt', model=None, exp_replay=None):
+    def train(self, df:pd.DataFrame, model, fname='output.txt', exp_replay=None):
         # collect stats from training
         stats = []
         exp_replay = ExperienceReplay(max_memory=self.max_memory)
@@ -111,7 +111,7 @@ class Player(object):
                 zz = model.train_on_batch(inputs, targets)
                 loss += zz
                 end = time.time()
-                print('elapsed', cnt, end-start)
+                #print('elapsed', cnt, end-start)
 
             prt_str = ("Epoch {:03d} | Loss {:.2f} | zz {:.2f} | pos {} | len {} | reward {:.5f} | pnl {:.2f}% @ {:.2f}% | eps {:,.4f} | win {:04d} | loss {:04d} {}".format(
                 e,
