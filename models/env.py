@@ -36,6 +36,10 @@ class Game(object):
         self.curr_time = self.df.index[self.curr_idx]
         self.curr_price = self.df['close'][self.curr_idx]
         self.pnl = self.position*(self.curr_price-self.entry) / self.entry
+        # if I can't calculate pnl set to zero
+        if np.isnan(self.pnl):
+            self.pnl = 0.0
+
         self.side = 1 if self.curr_price > self.entry else -1
         self._assemble_state()
         _h = self.curr_time.hour - 9  # starts at 9:00 ends at 18:00
@@ -47,7 +51,7 @@ class Game(object):
         self.norm_epoch = (self.df.index[self.curr_idx] - self.df.index[0]).total_seconds() / self.t_in_secs
 
         '''This is where we define our policy and update our position'''
-        self.trade_len = self.curr_idx - self.start_idx
+        #self.trade_len = self.curr_idx - self.start_idx
         if action == 0:
             pass
 
@@ -77,6 +81,10 @@ class Game(object):
             else:
                 pass
 
+        if self.position:
+            self.trade_len += 1
+
+
     def _assemble_state(self):
         '''Here we can add other things such as indicators and times'''
         self._get_last_N_timebars()
@@ -90,10 +98,12 @@ class Game(object):
 
         state = scale(np.array(state))
         self.state = np.array([])
+        self.state = np.append(self.state, scale(self.trade_len/self.max_game_len, min=0, max=1))
         # self.state = np.append(self.state, state)
         self.state = np.append(self.state, self.position)
         # self.state = np.append(self.state, np.sign(self.pnl_sum))
-        self.state = np.append(self.state, scale(self.pnl_sum, min=-0.02, max=0.02))
+        #print("Game::_ensamble_state() pnl", self.pnl)
+        self.state = np.append(self.state, scale(0 if np.isnan(self.pnl) else self.pnl, min=-0.02, max=0.02))
         self.state = np.append(self.state, self._time_of_day)
         self.state = np.append(self.state, self._day_of_week)
 
@@ -138,6 +148,10 @@ class Game(object):
                 # print('Game::_assemble_state() AROONOSC', tmp)
                 tmp = scale(tmp, 0, 100)
                 self.state = np.append(self.state, tmp)
+
+                if(np.isnan(self.state).any()):
+                    print("Error on data", self.state)
+
             except:
                 print(traceback.format_exc())
         # print(np.min(self.state), np.max(self.state))
@@ -148,21 +162,21 @@ class Game(object):
         '''The lengths of the time windows are currently hardcoded.'''
         # TODO: find better way to calculate window lengths
         wdw5m = 9
-        wdw1h = np.ceil(self.lkbk * 15 / 24.)
-        wdw1d = np.ceil(self.lkbk * 15)
+        #wdw1h = np.ceil(self.lkbk * 15 / 24.)
+        #wdw1d = np.ceil(self.lkbk * 15)
 
         self.last5m = self.df[self.curr_time - timedelta(wdw5m):self.curr_time].iloc[-self.lkbk:]
-        self.last1h = self.bars1h[self.curr_time - timedelta(wdw1h):self.curr_time].iloc[-self.lkbk:]
-        self.last1d = self.bars1d[self.curr_time - timedelta(wdw1d):self.curr_time].iloc[-self.lkbk:]
+        #self.last1h = self.bars1h[self.curr_time - timedelta(wdw1h):self.curr_time].iloc[-self.lkbk:]
+        #self.last1d = self.bars1d[self.curr_time - timedelta(wdw1d):self.curr_time].iloc[-self.lkbk:]
 
         '''Making sure that window lengths are sufficient'''
         try:
             assert (len(self.last5m) == self.lkbk)
-            assert (len(self.last1h) == self.lkbk)
+            #assert (len(self.last1h) == self.lkbk)
             # assert(len(self.last1d)==self.lkbk)
         except:
             print('****Window length too short****')
-            print(len(self.last5m), len(self.last1h), len(self.last1d))
+            print(len(self.last5m) ) #, len(self.last1h), len(self.last1d)
             if self.run_mode == 'sequential':
                 self.init_idx = self.curr_idx
                 self.reset()
@@ -179,7 +193,11 @@ class Game(object):
         return self.reward
 
     def _get_reward(self):
-        pnl = self.position * (self.curr_price - self.entry) / self.entry
+        if self.position:
+            pnl = self.position * (self.curr_price - self.entry) / self.entry
+        else:
+            pnl = 0
+
         pnl = pnl * 100
         dist = self.curr_idx - self.start_idx
         # factor = 1 if pnl > 0 else 0
@@ -205,7 +223,7 @@ class Game(object):
         self._update_state(action)
         reward = self.reward
         game_over = self.is_over
-        if(force_exit):
+        if force_exit:
             self.is_over = True
             game_over = True
         return self.observe(), reward, game_over
@@ -221,13 +239,16 @@ class Game(object):
 
         elif self.run_mode == 'sequential':
             self.curr_idx = self.init_idx
+        else:
+            assert "Unhandled Run Mode ["+self.run_mode+"]"
 
         self.t_in_secs = (self.df.index[-1] - self.df.index[0]).total_seconds()
         self.start_idx = self.curr_idx
         self.curr_time = self.df.index[self.curr_idx]
-        self.bars1h = self.df['close'].resample('1H', label='right', closed='right').ohlc().dropna()
-        self.bars1d = self.df['close'].resample('1D', label='right', closed='right').ohlc().dropna()
+        #self.bars1h = self.df['close'].resample('1H', label='right', closed='right').ohlc().dropna()
+        #self.bars1d = self.df['close'].resample('1D', label='right', closed='right').ohlc().dropna()
         self._get_last_N_timebars()
         self.state = []
         self.position = 0
+        self.trade_len = 0
         self._update_state(0)

@@ -17,7 +17,7 @@ class Player(object):
         self.START_IDX = 3000
         self.run_mode = 'random'
 
-        self.force_close_position_at = 1745
+        self.force_close_position_at = 1755
         pass
 
     def init_game(self, df):
@@ -42,17 +42,17 @@ class Player(object):
             # get initial input
             input_t = self.env.observe()
             # print(input_t)
-            random_pos = False
             cnt = 0
+            entered_at = 0
             import time
 
             while not game_over:
                 start = time.time()
                 cnt += 1
-                input_tm1 = input_t
+                input_tm1 = input_t.copy()
                 # get next action
+                # random action
                 if np.random.rand() <= epsilon:
-                    random_pos = True
                     action = np.random.randint(0, self.num_actions, size=1)[0]
                     #sets exit_action based on first movement in case of random access
                     if self.env.position == 0:
@@ -60,24 +60,37 @@ class Player(object):
                             exit_action = 1
                         elif action == 1:
                             exit_action = 2
-                elif self.env.position == 0:
-                    q = model.predict(input_tm1)
-                    action = np.argmax(q[0])
-                    if action == 0:
-                        print('run() - Predicted Action', action)
-                        new_action_set = np.delete(q[0], action)
-                        action = np.argmax(new_action_set)+1
-                        print('run() - New Predicted Action', action)
+                else:
+                    # non random action
+                    # flat
+                    if self.env.position == 0:
+                        q = model.predict(input_tm1)
+                        action = np.argmax(q[0])
+                        # if action == 0:
+                        #     print('run() - Predicted Action', action)
+                        #     new_action_set = np.delete(q[0], action)
+                        #     action = np.argmax(new_action_set)+1
+                        #     print('run() - New Predicted Action', action)
 
-                    if action:
-                        exit_action = np.argmin(q[0][1:]) + 1
+                        #if action:
+                        #   exit_action = np.argmin(q[0][1:]) + 1
+                        if action == 2:
+                            exit_action = 1
+                        elif action == 1:
+                            exit_action = 2
 
-                elif self.env.position:
-                    q = model.predict(input_tm1)
-                    action = np.argmax(q[0])
-                force_exit=False
-                if cnt >= self.max_game_len or self.env.curr_time.hour * 100 + self.env.curr_time.minute >= self.force_close_position_at:
-                    print('***Time Exit***')
+                    else:
+                        # on market
+                        q = model.predict(input_tm1)
+                        action = np.argmax(q[0])
+                # max length starts from market enter
+                if entered_at == 0 and action != 0:
+                    entered_at = cnt
+                    print('Player::train() entered_at', entered_at)
+
+                force_exit = False
+                if cnt >= self.max_game_len+entered_at or self.env.curr_time.hour * 100 + self.env.curr_time.minute >= self.force_close_position_at:
+                    # print('***Time Exit***')
                     action = exit_action
                     force_exit = True
 
@@ -100,12 +113,13 @@ class Player(object):
                 end = time.time()
                 print('elapsed', cnt, end-start)
 
-            prt_str = ("Epoch {:03d} | Loss {:.2f} | zz {:.2f} | pos {} | len {} | pnl {:.2f}% @ {:.2f}% | eps {:,.4f} | win {:04d} | loss {:04d} {}".format(
+            prt_str = ("Epoch {:03d} | Loss {:.2f} | zz {:.2f} | pos {} | len {} | reward {:.5f} | pnl {:.2f}% @ {:.2f}% | eps {:,.4f} | win {:04d} | loss {:04d} {}".format(
                 e,
                 loss,
                 zz,
                 self.env.position,
                 self.env.trade_len,
+                self.env.reward,
                 sum(pnls) * 100,
                 self.env.pnl * 100,
                 epsilon,
@@ -152,8 +166,8 @@ class Player(object):
         plt.grid()
         plt.show()
 
-        plt.title('Side vs Position over time')
         plt.figure(figsize=(14, 6))
+        plt.title('Side vs Position over time')
         plt.plot(res.side, label='side')
         plt.plot(res.pos, label='position')
         plt.legend()

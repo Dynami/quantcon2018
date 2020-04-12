@@ -12,6 +12,8 @@ from tensorflow.keras.activations import relu, softmax
 from tensorflow.keras.losses import MSE
 from tensorflow.keras.optimizers import SGD, Adam
 
+from sklearn.svm import SVC, SVR
+
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -39,10 +41,13 @@ def main(debug=False):
     model = Sequential()
 
     model.add(Dense(hidden_size, input_shape=(len(_env.state),), activation=relu))
-    #model.add(Dense(hidden_size, activation=relu))
+    model.add(BatchNormalization())
+    model.add(Dense(hidden_size, activation=relu))
+    model.add(BatchNormalization())
     model.add(Dense(player.num_actions, activation=softmax))
     model.compile(Adam(lr=.005), MSE)
     print(model.summary())
+
 
     #model.load_weights('indicator_model__.h5')
     stats, model, exp = player.train(df_train, model=model)
