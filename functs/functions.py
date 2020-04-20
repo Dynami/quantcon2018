@@ -6,12 +6,12 @@ def cycle(a, len=7):
     return np.cos(2 * np.pi * a / len)
 
 
-def scale(x: np.array, min=None, max=None):
-    _min = min if min is not None else np.min(x)
-    _max = max if max is not None else np.max(x)
-    # print(_min, _max)
-    return 2 * (x - _min) / (_max - _min) - 1
-
+def scale(x, min=None, max=None, out_range=(0, 1)):
+   _min = min if min is not None else np.min(x)
+   _max = max if max is not None else np.max(x)
+   domain = _min, _max
+   y = (x - (domain[1] + domain[0]) / 2) / (domain[1] - domain[0])
+   return y * (out_range[1] - out_range[0]) + (out_range[1] + out_range[0]) / 2
 
 def smoothF(period):
     return 2. / (period + 1)
@@ -75,3 +75,12 @@ def market_meanness_index(data, period):
         _mmi = mmi(subset)
         mmis.append(_mmi)
     return np.array(mmis)
+
+def my_softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
+
+def sharpe_ratio(r: np.ndarray, rf=0.0):
+    return (r.sum() - rf)/r.std()
