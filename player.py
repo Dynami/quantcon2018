@@ -24,7 +24,7 @@ class Player(object):
 
     def init_game(self, df, prev: Game = None):
         self.env = Game(df, look_back=self.lookback, max_game_len=self.max_game_len,
-                        init_idx=self.START_IDX if prev is None else prev.curr_idx+1,
+                        init_idx=self.START_IDX if prev is None or self.run_mode == 'random' else prev.curr_idx+1,
                         run_mode=self.run_mode)
         return self.env
 

@@ -19,7 +19,7 @@ class Game(object):
                  run_mode='sequential', init_idx=None,
                  start_trade_at=9, end_trade_at=17,
                  n_last_bars_in_state=5):
-        self.debug = True
+        self.debug = False
         self.df = df
         self.look_back = look_back
         self.max_game_len = max_game_len
@@ -33,6 +33,7 @@ class Game(object):
         self.run_mode = run_mode
         self.pnl_sum = 0
         self.curr_idx = init_idx
+        self.original_init_idx = init_idx
 
         if run_mode == 'sequential' and init_idx == None:
             print('------No init_idx set for "sequential": stopping------')
@@ -67,7 +68,7 @@ class Game(object):
         self.norm_epoch = (self.df.index[self.curr_idx] - self.df.index[0]).total_seconds() / self.t_in_secs
 
         # self._get_last_N_timebars()
-        # self._assemble_state()
+        self._assemble_state()
 
         # if I can't calculate pnl set to zero
         if np.isnan(self.pnl):
@@ -113,6 +114,7 @@ class Game(object):
         Here we can add other things such as indicators and times
         """
         if self.debug: print("Game::_assemble_state()")
+        self._get_last_N_timebars()
 
         bars = [self.last_bars]  # self.last5m, self.last1h, self.last1d
         state = []
@@ -197,7 +199,7 @@ class Game(object):
         wdw = self.look_back+self.n_last_bars+5;
 
         self.last_bars = self.df.iloc[self.curr_idx-wdw:self.curr_idx]
-        print('Game::_get_last_N_timebars()', self.last_bars.shape, self.curr_idx-wdw, self.curr_idx)
+        #print('Game::_get_last_N_timebars()', self.last_bars.shape, self.curr_idx-wdw, self.curr_idx)
 
         '''Making sure that window lengths are sufficient'''
 
@@ -272,9 +274,6 @@ class Game(object):
         """
         if self.debug: print("Game::act()")
         self._update_state(action)
-        self._get_last_N_timebars()
-        self._assemble_state()
-        self._get_reward()
         reward = self.reward
         game_over = self.is_over
         if force_exit:
@@ -291,7 +290,8 @@ class Game(object):
         self._day_of_week = 0
 
         if self.run_mode == 'random':
-            self.curr_idx = np.random.randint(self.init_idx, len(self.df) - self.init_idx)
+            #print('Game::reset()', self.original_init_idx, len(self.df) - self.original_init_idx)
+            self.curr_idx = np.random.randint(self.original_init_idx, len(self.df) - self.original_init_idx)
         elif self.run_mode == 'sequential':
             self.curr_idx += 1 #self.init_idx
         else:
@@ -307,4 +307,4 @@ class Game(object):
         self.position = 0
         self.side = 0
         self.trade_len = 0
-        #self._update_state(0)
+        self._update_state(0)

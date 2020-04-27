@@ -35,7 +35,7 @@ def train(debug=False):
 
     player = Player()
     # start set custom params for player
-    player.epoch = 500
+    player.epoch = 100
     player.batch_size = 30
     player.run_mode = 'random'
     player.max_memory = 200
