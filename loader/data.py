@@ -12,6 +12,9 @@ class DataLoader(object):
     def data(self):
         return self.df
 
+    def resample(self, freq='1H'):
+        return self.df['close'].resample(freq, label='right', closed='right').ohlc().dropna()
+
     def preprocess(self, start_hour=9, end_hour=17):
         df_full_lite = self.df.loc[self.df.index.hour >= start_hour]
         df_full_lite = df_full_lite.loc[df_full_lite.index.hour <= end_hour]

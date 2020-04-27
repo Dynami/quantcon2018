@@ -28,7 +28,7 @@ class Player(object):
                         run_mode=self.run_mode)
         return self.env
 
-    def train(self, df:pd.DataFrame, model, exp_replay=None):
+    def run(self, df:pd.DataFrame, model, learn=True, weights_file=None):
         '''
         position = 0 #flag
         position = 1 # long
@@ -62,7 +62,7 @@ class Player(object):
             self.env = self.init_game(df, self.env)
             self.env.reset()
             input_t = self.env.observe()
-
+            print('Player::run()', 'start epoch')
             while not game_over:
                 start = time.time()
                 cnt += 1
@@ -102,7 +102,8 @@ class Player(object):
                     if self.debug: print('Player::train() entered_at', entered_at)
 
                 force_exit = False
-                if self.env.position and (cnt >= self.max_game_len+entered_at or self.env.curr_time.hour * 100 + self.env.curr_time.minute >= self.force_close_position_at ):
+                #if self.env.position and (cnt >= self.max_game_len+entered_at or self.env.curr_time.hour * 100 + self.env.curr_time.minute >= self.force_close_position_at ):
+                if self.env.position and cnt >= self.max_game_len + entered_at:
                     #print('***Time Exit***')
                     action = exit_action
                     force_exit = True
@@ -116,15 +117,16 @@ class Player(object):
                     loss_cnt += 1
 
                 # store experience
-                if action or len(exp_replay.memory) < 20 or np.random.rand() < 0.1:
-                #if len(exp_replay.memory) < int(self.max_memory*.3) or np.random.rand() < 0.1:
+                #if action or len(exp_replay.memory) < 20 or np.random.rand() < 0.1:
+                if len(exp_replay.memory) < int(self.max_memory*.3) or np.random.rand() < 0.1:
                     exp_replay.remember([input_tm1, action, reward, input_t], game_over)
 
                 # train model
-                inputs, targets = exp_replay.get_batch(model, batch_size=self.batch_size)
-                self.env.pnl_sum = sum(pnls)
-                zz = model.train_on_batch(inputs, targets)
-                loss += zz
+                if learn:
+                    inputs, targets = exp_replay.get_batch(model, batch_size=self.batch_size)
+                    self.env.pnl_sum = sum(pnls)
+                    zz = model.train_on_batch(inputs, targets)
+                    loss += zz
                 end = time.time()
                 if self.debug: print('elapsed', cnt, end-start)
 
@@ -150,16 +152,13 @@ class Player(object):
             # fid.close()
             pnls.append(self.env.pnl)
 
-            if not e % 10:
+            if weights_file is not None and not e % 50:
                 print('----saving weights-----')
-                model.save_weights("indicator_model.h5", overwrite=True)
+                model.save_weights(weights_file, overwrite=True)
 
         return np.array(stats), model, exp_replay
 
-    def test(self):
-        pass
-
-    def execute(self):
+    def test___(self):
         pass
 
     def stats(self, stats:np.ndarray):

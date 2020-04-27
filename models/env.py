@@ -5,7 +5,6 @@ import talib
 import traceback
 from datetime import datetime, timedelta
 
-
 class Game(object):
     """
     This is the game. It starts, then takes an action (buy or sell) at some point and finally the reverse
@@ -20,7 +19,7 @@ class Game(object):
                  run_mode='sequential', init_idx=None,
                  start_trade_at=9, end_trade_at=17,
                  n_last_bars_in_state=5):
-        self.debug = False
+        self.debug = True
         self.df = df
         self.look_back = look_back
         self.max_game_len = max_game_len
@@ -37,9 +36,14 @@ class Game(object):
 
         if run_mode == 'sequential' and init_idx == None:
             print('------No init_idx set for "sequential": stopping------')
+            self.curr_idx = init_idx
             return
         else:
             self.init_idx = init_idx
+
+        # self._update_state(0)
+        # self._get_last_N_timebars()
+        # self._assemble_state()
         self.reset()
 
     def _update_state(self, action):
@@ -62,7 +66,8 @@ class Game(object):
         self._day_of_week = scale(cycle(self.curr_time.weekday(), 7), min=-1, max=1)
         self.norm_epoch = (self.df.index[self.curr_idx] - self.df.index[0]).total_seconds() / self.t_in_secs
 
-        self._assemble_state()
+        # self._get_last_N_timebars()
+        # self._assemble_state()
 
         # if I can't calculate pnl set to zero
         if np.isnan(self.pnl):
@@ -109,21 +114,20 @@ class Game(object):
         """
         if self.debug: print("Game::_assemble_state()")
 
-        self._get_last_N_timebars()
-        bars = [self.last5m, self.last1h]  # , self.last1h, self.last1d
+        bars = [self.last_bars]  # self.last5m, self.last1h, self.last1d
         state = []
         candles = {j: {k: np.array([]) for k in ['open', 'high', 'low', 'close']} for j in range(len(bars))}
         for j, bar in enumerate(bars):
             for col in ['open', 'high', 'low', 'close']:
                 candles[j][col] = np.asarray(bar[col])
-                #state += (list(np.asarray(bar[col]))[-self.n_last_bars:])
+                # state += (list(np.asarray(bar[col]))[-self.n_last_bars:])
 
         # state = scale(np.array(state))
 
         self.state = np.array(state)
         self.state = np.append(self.state, scale(self.trade_len / self.max_game_len, min=0, max=1))
         self.state = np.append(self.state, scale(self.position, min=-1, max=1))
-        self.state = np.append(self.state, scale(0 if np.isnan(self.pnl) else self.pnl, min=-2.0, max=2.0))
+        self.state = np.append(self.state, np.minimum( 1, np.maximum(0, scale(0 if np.isnan(self.pnl) else self.pnl, min=-3.0, max=3.0))))
         self.state = np.append(self.state, self._time_of_day)
         self.state = np.append(self.state, self._day_of_week)
 
@@ -142,9 +146,9 @@ class Game(object):
                 # print('Game::_assemble_state() RSI', tmp)
                 self.state = np.append(self.state, tmp)
 
-                #tmp = scale(talib.MOM(candles[c]['close'])[-self.n_last_bars:], -3., 3.)
+                tmp = scale(talib.MOM(candles[c]['close'])[-self.n_last_bars:], -3., 3.)
                 # print('Game::_assemble_state() MON', tmp)
-                #self.state = np.append(self.state, tmp)
+                self.state = np.append(self.state, tmp)
 
                 # self.state = np.append(self.state,talib.MACD(candles[c]['close'],fastperiod=11, slowperiod=22, signalperiod=9)[0][0])
                 # self.state = np.append(self.state, talib.BOP(candles[c]['open'],
@@ -157,15 +161,15 @@ class Game(object):
                 ##self.state = np.append(self.state,talib.STOCH(candles[c]['high'],
                 ##                               candles[c]['low'],
                 ##                               candles[c]['close'],5,3,0,3,0)[-1][0])
-                #tmp = talib.AROONOSC(candles[c]['high'],
+                # tmp = talib.AROONOSC(candles[c]['high'],
                 #                     candles[c]['low'])[-self.n_last_bars:]
                 # print('Game::_assemble_state() AROONOSC', tmp)
-                #self.state = np.append(self.state, scale(tmp, 0, 100))
+                # self.state = np.append(self.state, scale(tmp, 0, 100, out_range=(0, 1)))
 
                 if (np.isnan(self.state).any()):
                     print("Error on data", self.state)
 
-                if(np.min(self.state) < 0 or np.max(self.state) > 1.3):
+                if(np.min(self.state) < -0.0001 or np.max(self.state) > 1.3):
                     np.set_printoptions(precision=3, suppress=True)
                     print("Game::_assemble_state()", self.state)
 
@@ -182,28 +186,39 @@ class Game(object):
         """
         if self.debug: print("Game::_get_last_N_timebars()")
         # TODO: find better way to calculate window lengths
-        wdw5m = 9
-        wdw1h = np.ceil(self.look_back * 15 / 24.)
-        # wdw1d = np.ceil(self.look_back * 15)
+        #wdw5m = 9
+        #wdw1h = np.ceil(self.look_back * 15 / 24.)
+        #wdw1d = np.ceil(self.look_back * 15)
 
-        self.last5m = self.df[self.curr_time - timedelta(wdw5m):self.curr_time].iloc[-self.look_back:]
-        self.last1h = self.bars1h[self.curr_time - timedelta(wdw1h):self.curr_time].iloc[-self.look_back:]
-        # self.last1d = self.bars1d[self.curr_time - timedelta(wdw1d):self.curr_time].iloc[-self.look_back:]
+        #self.last5m = self.df[self.curr_time - timedelta(wdw5m):self.curr_time].iloc[-self.look_back:]
+        #self.last1h = self.bars1h[self.curr_time - timedelta(wdw1h):self.curr_time].iloc[-self.look_back:]
+        #self.last1d = self.bars1d[self.curr_time - timedelta(wdw1d):self.curr_time].iloc[-self.look_back:]
+
+        wdw = self.look_back+self.n_last_bars+5;
+
+        self.last_bars = self.df.iloc[self.curr_idx-wdw:self.curr_idx]
+        print('Game::_get_last_N_timebars()', self.last_bars.shape, self.curr_idx-wdw, self.curr_idx)
 
         '''Making sure that window lengths are sufficient'''
 
-        try:
-            assert (len(self.last5m) == self.look_back)
-            assert (len(self.last1h) == self.look_back)
-            # assert(len(self.last1d)==self.lkbk)
-        except:
-            print('****Window length too short****')
-            print(len(self.last5m), len(self.last1h))  # , len(self.last1h), len(self.last1d)
-            if self.run_mode == 'sequential':
-                #self.init_idx = self.curr_idx
-                self.reset()
-            else:
-                self.reset()
+        # try:
+        #     pass
+        #     #assert (len(self.last5m) == self.look_back)
+        #     #assert (len(self.last1h) == self.look_back)
+        #     #assert(len(self.last1d)==self.look_back)
+        # except:
+        #     print('****Window length too short****')
+        #     print(
+        #     #    len(self.last5m),
+        #     #     len(self.last1h),
+        #         #len(self.last1d)
+        #     )
+        #     if self.run_mode == 'sequential':
+        #         pass
+        #         #self.init_idx = self.curr_idx
+        #         #self.reset()
+        #     else:
+        #         self.reset()
 
     def original_get_reward(self):
         if self.position == 1 and self.is_over:
@@ -238,7 +253,7 @@ class Game(object):
             else:
                 reward = pnl #* (1 + penalty)
             self.reward = scale(reward, min=-2.0, max=2.0, out_range=(-1, 1))
-            print('Game::_get_reward()', pnl, dist, penalty, reward)
+            if self.debug: print('Game::_get_reward()', pnl, dist, penalty, reward)
         else:
             self.reward = 0
 
@@ -257,6 +272,8 @@ class Game(object):
         """
         if self.debug: print("Game::act()")
         self._update_state(action)
+        self._get_last_N_timebars()
+        self._assemble_state()
         self._get_reward()
         reward = self.reward
         game_over = self.is_over
@@ -274,7 +291,7 @@ class Game(object):
         self._day_of_week = 0
 
         if self.run_mode == 'random':
-            self.curr_idx = np.random.randint(0, len(self.df) - self.init_idx)
+            self.curr_idx = np.random.randint(self.init_idx, len(self.df) - self.init_idx)
         elif self.run_mode == 'sequential':
             self.curr_idx += 1 #self.init_idx
         else:
@@ -283,11 +300,11 @@ class Game(object):
         self.t_in_secs = (self.df.index[-1] - self.df.index[0]).total_seconds()
         self.start_idx = self.curr_idx
         self.curr_time = self.df.index[self.curr_idx]
-        self.bars1h = self.df['close'].resample('1H', label='right', closed='right').ohlc().dropna()
-        # self.bars1d = self.df['close'].resample('1D', label='right', closed='right').ohlc().dropna()
-        self._get_last_N_timebars()
+        #self.bars1h = self.df['close'].resample('1H', label='right', closed='right').ohlc().dropna()
+        #self.bars1d = self.df['close'].resample('1D', label='right', closed='right').ohlc().dropna()
+        #self._get_last_N_timebars()
         self.state = []
         self.position = 0
         self.side = 0
         self.trade_len = 0
-        self._update_state(0)
+        #self._update_state(0)

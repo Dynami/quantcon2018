@@ -83,4 +83,4 @@ def my_softmax(x):
 
 
 def sharpe_ratio(r: np.ndarray, rf=0.0):
-    return (r.sum() - rf)/r.std()
+    return (r.sum() - rf)/r.cumsum().std()
