@@ -2,16 +2,34 @@ import numpy as np
 import math
 import pandas as pd
 
+
 def cycle(a, len=7):
     return np.cos(2 * np.pi * a / len)
 
 
+def _scale(x, min=None, max=None, out_range=(0, 1)):
+    _min = min if min is not None else np.min(x)
+    _max = max if max is not None else np.max(x)
+    epsilon = 1e-10
+    y = (x-_min+epsilon)/(_max-_min+epsilon)
+    # x : max = y : out_range[1]
+    # min/max = out_range[0]/out_range[1]
+    y * (out_range[0] / out_range[1])
+
 def scale(x, min=None, max=None, out_range=(0, 1)):
-   _min = min if min is not None else np.min(x)
-   _max = max if max is not None else np.max(x)
-   domain = _min, _max
-   y = (x - (domain[1] + domain[0]) / 2) / (domain[1] - domain[0])
-   return y * (out_range[1] - out_range[0]) + (out_range[1] + out_range[0]) / 2
+    _min = min if min is not None else np.min(x)
+    _max = max if max is not None else np.max(x)
+    epsilon = 1e-10
+    if np.isnan(_min) or np.isinf(_min):
+        _min = out_range[0]
+    if np.isnan(_max) or np.isinf(_max):
+        _max = out_range[1]
+
+    domain = _min, _max
+    y = (x - (domain[1] + domain[0]) / 2 + epsilon) / (domain[1] - domain[0] + epsilon)
+
+    return y * (out_range[1] - out_range[0]) + (out_range[1] + out_range[0]) / 2
+
 
 def smoothF(period):
     return 2. / (period + 1)
@@ -27,7 +45,7 @@ def highPassFilter(data, period=48):
     for i in range(3, data.shape[0]):
         subset = data[i - 3:i]
         hp[i] = b * b * (subset[-1] - 2 * subset[-2] + subset[-3]) + 2 * c * hp[i - 1] - c * c * hp[i - 2]
-    hp = pd.Series(name='hp', index=data.index, data=hp)
+    #hp = pd.Series(name='hp', index=data.index, data=hp)
     return hp
 
 
@@ -76,6 +94,7 @@ def market_meanness_index(data, period):
         mmis.append(_mmi)
     return np.array(mmis)
 
+
 def my_softmax(x):
     """Compute softmax values for each sets of scores in x."""
     e_x = np.exp(x - np.max(x))
@@ -83,4 +102,4 @@ def my_softmax(x):
 
 
 def sharpe_ratio(r: np.ndarray, rf=0.0):
-    return (r.sum() - rf)/r.cumsum().std()
+    return (r.sum() - rf) / r.cumsum().std()

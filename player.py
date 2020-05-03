@@ -22,15 +22,21 @@ class Player(object):
         self.force_close_position_at = 1755
         pass
 
-    def init_game(self, df, prev: Game = None):
-        self.env = Game(df, look_back=self.lookback, max_game_len=self.max_game_len,
-                        init_idx=self.START_IDX if prev is None or self.run_mode == 'random' else prev.curr_idx+1,
-                        run_mode=self.run_mode)
+    def init_game(self, df, prev: Game = None, debug=False):
+        if prev is None:
+            self.env = Game(df, look_back=self.lookback, max_game_len=self.max_game_len,
+                            #init_idx=self.START_IDX if prev is None or self.run_mode == 'random' else prev.curr_idx+1,
+                            init_idx=self.START_IDX,
+                            run_mode=self.run_mode, debug=self.debug)
+            self.env.observe(next_state=True)
+
+        #self.env.reset()
+
         return self.env
 
     def run(self, df:pd.DataFrame, model, learn=True, weights_file=None):
         '''
-        position = 0 #flag
+        position = 0 #flat
         position = 1 # long
         position = -1 #short
 
@@ -51,27 +57,35 @@ class Player(object):
         wins = []
         losses = []
         pnls = []
+        if self.debug: print('--------- START TRAINING ----------')
         for e in range(1, self.epoch+1):
             # control variables
             epsilon = self.epsilon_0 ** (np.log10(e)/1.3)
             game_over = False
-            loss = 0.
+            loss = 0
             cnt = 0
             entered_at = 0
             # set the game for each epoch
-            self.env = self.init_game(df, self.env)
+            #self.env = self.init_game(df, self.env)
+            self.env = Game(df, look_back=self.lookback, max_game_len=self.max_game_len,
+                            init_idx=self.START_IDX if self.env is None or self.run_mode == 'random' else self.env.curr_idx+1,
+                            run_mode=self.run_mode, debug=self.debug)
             self.env.reset()
             input_t = self.env.observe()
-            print('Player::run()', 'start epoch')
+            if self.debug: print('Player::run()', 'start epoch')
             while not game_over:
                 start = time.time()
                 cnt += 1
-                input_tm1 = input_t.copy()
+                input_tm1 = input_t
+
+                #input_t = self.env.observe()
                 # get next action
                 # random action
-                if np.random.rand() <= epsilon:
+                if np.random.rand() <= epsilon:  # not self.env.position or
                     action = np.random.randint(0, self.num_actions, size=1)[0]
                     #sets exit_action based on first movement in case of random access
+                    #if self.env.position == 0 and action != 0: print('enter')
+
                     if self.env.position == 0:
                         if action == 2:  # buy
                             exit_action = 1  # sell
@@ -81,13 +95,7 @@ class Player(object):
                     if self.env.position == 0:  # flat
                         q = model.predict(input_tm1)
                         action = np.argmax(q[0])
-                        # if action == 0:
-                        #     print('run() - Predicted Action', action)
-                        #     new_action_set = np.delete(q[0], action)
-                        #     action = np.argmax(new_action_set)+1
-                        #     print('run() - New Predicted Action', action)
 
-                        #if action:
                         if action == 2:  # buy
                             exit_action = 1  # sell
                         elif action == 1:  # sell
@@ -118,11 +126,14 @@ class Player(object):
 
                 # store experience
                 #if action or len(exp_replay.memory) < 20 or np.random.rand() < 0.1:
-                if len(exp_replay.memory) < int(self.max_memory*.3) or np.random.rand() < 0.1:
+                if game_over or len(exp_replay.memory) < int(self.max_memory*.1) or np.random.rand() < 0.05:
+                    if(np.sum(input_tm1) == np.sum(input_t)):
+                        print('############# VERY STRANGE ###########')
                     exp_replay.remember([input_tm1, action, reward, input_t], game_over)
 
                 # train model
                 if learn:
+                    # print(len(exp_replay.memory))
                     inputs, targets = exp_replay.get_batch(model, batch_size=self.batch_size)
                     self.env.pnl_sum = sum(pnls)
                     zz = model.train_on_batch(inputs, targets)
@@ -130,22 +141,25 @@ class Player(object):
                 end = time.time()
                 if self.debug: print('elapsed', cnt, end-start)
 
-            prt_str = ("Epoch {:03d} | Loss {:.2f} | pos {} | len {} | reward {:.5f} | pnl {:.2f}% @ {:.2f}% | eps {:,.4f} | win {:04d} | loss {:04d} {}".format(
+            prt_str = ("Epoch {:03d} | Loss {:.2f} | pos {} | len {} | at {} | reward {:.5f} | pnl {:.2f}% @ {:.2f}% | eps {:,.4f} | win {:04d} | loss {:04d} @{}||{}".format(
                 e,
                 loss,
                 #zz,
                 self.env.position,
                 self.env.trade_len,
+                entered_at,
                 self.env.reward,
                 sum(pnls) * 100,
                 self.env.pnl * 100,
                 epsilon,
                 win_cnt,
                 loss_cnt,
+                #self.env.entry,
+                self.env.start_time,
                 self.env.curr_time
             ))
             stats.append({'loss': loss, 'pos': self.env.position, 'side': self.env.side, 'reward': self.env.reward, 'len': self.env.trade_len, 'cum_pnl': sum(pnls), 'cur_pnl': self.env.pnl, \
-                      'win': 1 if reward > 0 else -1, 'time': self.env.curr_time})
+                      'win': 1 if reward > 0 else -1, 'entry': self.env.start_time, 'exit': self.env.curr_time})
             print(prt_str)
             # fid = open(fname, 'a')
             # fid.write(prt_str + '\n')

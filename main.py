@@ -16,92 +16,70 @@ from models.torch import TorchModel
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
-def train(debug=False):
+def run(debug=False):
+    train = 0
+
     print('Start loading data')
     loader = DataLoader('data.txt')
     print('Loaded data')
-    df_full = loader.resample()
-    #df_full = loader.preprocess(start_hour=7, end_hour=19)
-    print('Data preprocessed')
+    #df_full = loader.resample()
+    df_full = loader.preprocess(start_hour=7, end_hour=18)
+    print('Data preprocessed', df_full.shape)
     # select train data
-    train_start_idx = 1000
-    train_end_idx = 30000
-    df_train = df_full.iloc[train_start_idx:train_end_idx]
+    if train:
+        start_idx = 3000
+        end_idx = 30000 # 500000
+    else:
+        start_idx = 200000
+        end_idx = 500000
+    df = df_full.iloc[start_idx:end_idx]
     weight_file = 'torch_model.pt1'
-    if debug:
-        plt.plot(df_train.close)
+    if debug or not train:
+        plt.plot(df.close)
         plt.grid()
         plt.show()
 
     player = Player()
     # start set custom params for player
-    player.epoch = 100
+    if train:
+        player.epoch = 1000
+    else:
+        player.epoch = 5000
     player.batch_size = 30
-    player.run_mode = 'random'
-    player.max_memory = 200
+    player.n_last_bars_in_state = 5
+    player.lookback = 50
+
+    if train:
+        player.run_mode = 'random'
+    else:
+        player.run_mode = 'sequential'
+
+    player.max_memory = 1000
     player.max_game_len = 12
     player.debug = False
     player.START_IDX = 1000
     # end set custom params for player
 
-    _env = player.init_game(df_train)
+    _env = player.init_game(df)
 
     hidden_size = len(_env.state) * 2
     D_in, H, D_out = len(_env.state), hidden_size, player.num_actions
     model = TorchModel(D_in, H, D_out)
 
-    #model.load_weights(weight_file)
+    if train:
+        stats, model, exp = player.run(df, model=model, weights_file=weight_file)
+    else:
+        model.load_weights(weight_file)
+        stats, model, exp = player.run(df, model=model, weights_file=None, learn=False)
 
-    stats, model, exp = player.run(df_train, model=model, weights_file=weight_file)
-    model.save_weights(output=weight_file)
+    #model.save_weights(output=weight_file)
 
     player.stats(stats)
     return stats, model, exp
 
-# def test(model=None, debug=False):
-#     print('Start loading data')
-#     loader = DataLoader('data.txt')
-#     print('Loaded data')
-#     df_full = loader.preprocess(start_hour=9, end_hour=17)
-#     print('Data preprocessed')
-#     # select train data
-#     test_start_idx = 130000
-#     df_test = df_full.iloc[test_start_idx:]
-#
-#
-#
-#     if debug:
-#         plt.plot(df_test.close)
-#         plt.grid()
-#         plt.show()
-#
-#     player = Player()
-#     # start set custom params for player
-#     player.epoch = 10
-#     player.batch_size = 50
-#     player.run_mode = 'sequential'
-#     player.max_memory = 200
-#     player.max_game_len = 15
-#     player.debug = False
-#     player.START_IDX = 3000
-#     # end set custom params for player
-#
-#     _env = player.init_game(df_test)
-#
-#     hidden_size = len(_env.state) * 2
-#     D_in, H, D_out = len(_env.state), hidden_size, player.num_actions
-#     if model is None:
-#         model = TorchModel(D_in, H, D_out)
-#
-#     #model.load_weights(weight_file)
-#
-#     stats, model, exp = player.run(df_test, model=model, learn=False, weights_file=weight_file)
-#
-#     player.stats(stats)
-#     return stats, model, exp
 
 if __name__ == "__main__":
-    stats, model, exp = train()
+    stats, model, exp = run(debug=False)
     # test(model=None)
 
 

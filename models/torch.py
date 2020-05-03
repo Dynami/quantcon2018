@@ -7,12 +7,16 @@ class TModel(torch.nn.Module):
     def __init__(self, D_in, H, D_out):
         super(TModel, self).__init__()
         self.fc1 = torch.nn.Linear(D_in, H)
+        self.bn1 = torch.nn.Dropout(p=0.5)
         self.fc2 = torch.nn.Linear(H, H)
+        self.bn2 = torch.nn.Dropout(p=0.5)
         self.fc3 = torch.nn.Linear(H, D_out)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
+        #x = self.bn1(x)
         x = F.relu(self.fc2(x))
+        #x = self.bn2(x)
         x = self.fc3(x)
         return x
 
