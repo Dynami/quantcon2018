@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 def run(debug=False):
-    train = 0
+    train = 1
 
     print('Start loading data')
     loader = DataLoader('data.txt')
@@ -28,7 +28,7 @@ def run(debug=False):
     # select train data
     if train:
         start_idx = 3000
-        end_idx = 30000 # 500000
+        end_idx = 200000 # 500000
     else:
         start_idx = 200000
         end_idx = 500000
@@ -42,22 +42,22 @@ def run(debug=False):
     player = Player()
     # start set custom params for player
     if train:
-        player.epoch = 1000
+        player.epoch = 11500
     else:
         player.epoch = 5000
-    player.batch_size = 30
+    player.batch_size = 500
     player.n_last_bars_in_state = 5
-    player.lookback = 50
+    player.lookback = 30
 
     if train:
         player.run_mode = 'random'
     else:
         player.run_mode = 'sequential'
 
-    player.max_memory = 1000
-    player.max_game_len = 12
+    player.max_memory = 10000
+    player.max_game_len = 100
     player.debug = False
-    player.START_IDX = 1000
+    player.START_IDX = 3000
     # end set custom params for player
 
     _env = player.init_game(df)

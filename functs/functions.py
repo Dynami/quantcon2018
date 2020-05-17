@@ -2,21 +2,23 @@ import numpy as np
 import math
 import pandas as pd
 
-
 def cycle(a, len=7):
     return np.cos(2 * np.pi * a / len)
 
-
-def _scale(x, min=None, max=None, out_range=(0, 1)):
+def scale(x, min=None, max=None, out_range=(0, 1)):
     _min = min if min is not None else np.min(x)
     _max = max if max is not None else np.max(x)
+    if np.isnan(_min) or np.isinf(_min):
+        _min = out_range[0]
+    if np.isnan(_max) or np.isinf(_max):
+        _max = out_range[1]
     epsilon = 1e-10
+    # 0 - 1 range
     y = (x-_min+epsilon)/(_max-_min+epsilon)
-    # x : max = y : out_range[1]
-    # min/max = out_range[0]/out_range[1]
-    y * (out_range[0] / out_range[1])
+    # apply custom range
+    return out_range[0]+ y * (out_range[1] - out_range[0])
 
-def scale(x, min=None, max=None, out_range=(0, 1)):
+def _scale(x, min=None, max=None, out_range=(0, 1)):
     _min = min if min is not None else np.min(x)
     _max = max if max is not None else np.max(x)
     epsilon = 1e-10

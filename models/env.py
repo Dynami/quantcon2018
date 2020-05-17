@@ -184,7 +184,7 @@ class Game(object):
         if self.debug: print("Game::_assemble_state()")
         #self._get_last_N_timebars()
 
-        bars = [self.last1h]  # self.last5m, self.last1h, self.last1d
+        bars = [self.last5m, self.last1h]  # self.last5m, self.last1h, self.last1d
         state = []
         candles = {j: {k: np.array([]) for k in ['open', 'high', 'low', 'close']} for j in range(len(bars))}
         for j, bar in enumerate(bars):
@@ -197,7 +197,9 @@ class Game(object):
         self.state = np.array(state)
         self.state = np.append(self.state, scale(self.trade_len / self.max_game_len, min=0, max=1))
         self.state = np.append(self.state, scale(self.position, min=-1, max=1))
-        self.state = np.append(self.state, np.minimum( 1, np.maximum(0, scale(0 if np.isnan(self.pnl) else self.pnl, min=-3.0, max=3.0))))
+        self.state = np.append(self.state,
+                               np.minimum(1,
+                                          np.maximum(0, scale(0 if np.isnan(self.pnl) else self.pnl, min=-3.0, max=3.0))))
         self.state = np.append(self.state, self._time_of_day)
         self.state = np.append(self.state, self._day_of_week)
 
@@ -216,9 +218,9 @@ class Game(object):
                 #tmp = market_meanness_index(candles[c]['close'], 30)[-self.n_last_bars:]
                 #self.state = np.append(self.state, scale(tmp, min=0, max=100))
 
-                # tmp = scale(talib.RSI(candles[c]['close'])[-self.n_last_bars:], min=0., max=100.)
+                tmp = scale(talib.RSI(candles[c]['close'])[-self.n_last_bars:]) #, min=0., max=100.
                 # # print('Game::_assemble_state() RSI', tmp)
-                # self.state = np.append(self.state, tmp)
+                self.state = np.append(self.state, tmp)
 
                 #tmp = scale(talib.MOM(candles[c]['close'])[-self.n_last_bars:], -3., 3.)
                 # print('Game::_assemble_state() MON', tmp)
