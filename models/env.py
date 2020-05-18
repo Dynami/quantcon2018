@@ -198,8 +198,8 @@ class Game(object):
         self.state = np.append(self.state, scale(self.trade_len / self.max_game_len, min=0, max=1))
         self.state = np.append(self.state, scale(self.position, min=-1, max=1))
         self.state = np.append(self.state,
-                               np.minimum(1,
-                                          np.maximum(0, scale(0 if np.isnan(self.pnl) else self.pnl, min=-3.0, max=3.0))))
+                                np.minimum(1,
+                                np.maximum(0, scale(0 if np.isnan(self.pnl) else self.pnl, min=-0.03, max=0.03))))
         self.state = np.append(self.state, self._time_of_day)
         self.state = np.append(self.state, self._day_of_week)
 

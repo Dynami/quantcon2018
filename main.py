@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 def run(debug=False):
-    train = 1
+    train = 0
 
     print('Start loading data')
     loader = DataLoader('data.txt')
@@ -25,40 +25,35 @@ def run(debug=False):
     #df_full = loader.resample()
     df_full = loader.preprocess(start_hour=7, end_hour=18)
     print('Data preprocessed', df_full.shape)
+    player = Player()
+
     # select train data
     if train:
         start_idx = 3000
         end_idx = 200000 # 500000
+        player.epoch = 11500
+        player.run_mode = 'random'
     else:
         start_idx = 200000
         end_idx = 500000
+        player.epoch = 5000
+        player.run_mode = 'sequential'
+    # start set custom params for player
+    player.batch_size = 100
+    player.n_last_bars_in_state = 10
+    player.lookback = 90
+    player.max_memory = 10000
+    player.max_game_len = 6
+    player.debug = False
+    player.START_IDX = 3000
+    # end set custom params for player
+
     df = df_full.iloc[start_idx:end_idx]
     weight_file = 'torch_model.pt1'
     if debug or not train:
         plt.plot(df.close)
         plt.grid()
         plt.show()
-
-    player = Player()
-    # start set custom params for player
-    if train:
-        player.epoch = 11500
-    else:
-        player.epoch = 5000
-    player.batch_size = 500
-    player.n_last_bars_in_state = 5
-    player.lookback = 30
-
-    if train:
-        player.run_mode = 'random'
-    else:
-        player.run_mode = 'sequential'
-
-    player.max_memory = 10000
-    player.max_game_len = 100
-    player.debug = False
-    player.START_IDX = 3000
-    # end set custom params for player
 
     _env = player.init_game(df)
 
