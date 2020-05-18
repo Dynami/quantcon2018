@@ -34,7 +34,7 @@ class Player(object):
 
         return self.env
 
-    def run(self, df:pd.DataFrame, model, learn=True, weights_file=None):
+    def run(self, df:pd.DataFrame, model_a, env_dim, model_b=None, learn=True, weights_file=None):
         '''
         position = 0 #flat
         position = 1 # long
@@ -45,7 +45,7 @@ class Player(object):
         action = 2 # buy
 
         :param df:
-        :param model:
+        :param model_a:
         :param exp_replay:
         :return:
         '''
@@ -93,7 +93,7 @@ class Player(object):
                             exit_action = 2  # buy
                 else:  # non random action
                     if self.env.position == 0:  # flat
-                        q = model.predict(input_tm1)
+                        q = model_a.predict(input_tm1)
                         action = np.argmax(q[0])
 
                         if action == 2:  # buy
@@ -101,7 +101,7 @@ class Player(object):
                         elif action == 1:  # sell
                             exit_action = 2  # buy
                     else:  # on market
-                        q = model.predict(input_tm1)
+                        q = model_a.predict(input_tm1)
                         action = np.argmax(q[0])
 
                 # max length starts from market enter
@@ -124,22 +124,31 @@ class Player(object):
                 elif game_over and self.env.pnl <= 0:
                     loss_cnt += 1
 
-                # store experience
-                #if action or len(exp_replay.memory) < 20 or np.random.rand() < 0.1:
-                if game_over or len(exp_replay.memory) < int(self.max_memory*.1) or np.random.rand() < 0.05:
-                    if(np.sum(input_tm1) == np.sum(input_t)):
-                        print('############# VERY STRANGE ###########')
-                    exp_replay.remember([input_tm1, action, reward, input_t], game_over)
 
                 # train model
                 if learn:
                     # print(len(exp_replay.memory))
-                    inputs, targets = exp_replay.get_batch(model, batch_size=self.batch_size)
+                    models = [model_a] if model_b is None else (model_a, model_b)
+
+                    inputs, targets = exp_replay.get_batch(models, env_dim=env_dim, num_actions=self.num_actions, batch_size=self.batch_size)
                     self.env.pnl_sum = sum(pnls)
-                    zz = model.train_on_batch(inputs, targets)
+                    zz = model_a.train_on_batch(inputs, targets)
                     loss += zz
+
+                    if model_b is not None:
+                        model_b.train_on_batch(inputs, targets)
+
+                # store experience
+                # if action or len(exp_replay.memory) < 20 or np.random.rand() < 0.1:
+                if game_over or len(exp_replay.memory) < int(self.max_memory * .1) or np.random.rand() < 0.05:
+                    if (np.sum(input_tm1) == np.sum(input_t)):
+                        print('############# VERY STRANGE ###########')
+                    # Implement prioritized memory
+                    exp_replay.remember([input_tm1, action, reward, input_t], game_over, loss=(loss if learn else None))  #
+
                 end = time.time()
                 if self.debug: print('elapsed', cnt, end-start)
+
 
             prt_str = ("Epoch {:03d} | Loss {:.2f} | pos {} | len {} | at {} | reward {:.5f} | pnl {:.2f}% @ {:.2f}% | eps {:,.4f} | win {:04d} | loss {:04d} @{}||{}".format(
                 e,
@@ -168,9 +177,9 @@ class Player(object):
 
             if weights_file is not None and not e % 50:
                 print('----saving weights-----')
-                model.save_weights(weights_file, overwrite=True)
+                model_a.save_weights(weights_file, overwrite=True)
 
-        return np.array(stats), model, exp_replay
+        return np.array(stats), model_a, exp_replay
 
     def test___(self):
         pass

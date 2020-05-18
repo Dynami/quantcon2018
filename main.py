@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 def run(debug=False):
-    train = 0
+    train = 1
 
     print('Start loading data')
     loader = DataLoader('data.txt')
@@ -31,13 +31,14 @@ def run(debug=False):
     if train:
         start_idx = 3000
         end_idx = 200000 # 500000
-        player.epoch = 11500
+        player.epoch = 1000 # 11500
         player.run_mode = 'random'
     else:
         start_idx = 200000
         end_idx = 500000
         player.epoch = 5000
         player.run_mode = 'sequential'
+
     # start set custom params for player
     player.batch_size = 100
     player.n_last_bars_in_state = 10
@@ -59,18 +60,19 @@ def run(debug=False):
 
     hidden_size = len(_env.state) * 2
     D_in, H, D_out = len(_env.state), hidden_size, player.num_actions
-    model = TorchModel(D_in, H, D_out)
+    model_a = TorchModel(D_in, H, D_out)
+    model_b = TorchModel(D_in, H, D_out)
 
     if train:
-        stats, model, exp = player.run(df, model=model, weights_file=weight_file)
+        stats, model_a, exp = player.run(df, model_a=model_a, env_dim=D_in, model_b=model_b, weights_file=weight_file)
     else:
-        model.load_weights(weight_file)
-        stats, model, exp = player.run(df, model=model, weights_file=None, learn=False)
+        model_a.load_weights(weight_file)
+        stats, model_a, exp = player.run(df, model_a=model_a, env_dim=D_in, model_b=None, weights_file=None, learn=False)
 
     #model.save_weights(output=weight_file)
 
     player.stats(stats)
-    return stats, model, exp
+    return stats, model_a, exp
 
 
 if __name__ == "__main__":
