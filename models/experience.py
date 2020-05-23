@@ -19,14 +19,22 @@ class ExperienceReplay(object):
         self.memory.append([states, game_over])
         if loss is not None:
             self.memory_losses = np.append(self.memory_losses, [loss]);
+
+        if len(self.memory) > self.max_memory:
+            if len(self.memory_losses) > 0:
+                self.memory_losses = np.delete(self.memory_losses, 0)
+            del self.memory[0]
+
+        if loss is not None:
             self.memory_idx = np.argsort(self.memory_losses)
             self.memory_idx = np.flip(self.memory_idx)
 
-        if len(self.memory) > self.max_memory:
-            if len(self.memory_idx) > 0:
-                self.memory_losses = np.delete(self.memory_losses, 0)
 
-            del self.memory[0]
+        # assert len(self.memory) > 0 \
+        #        and len(self.memory_losses) > 0 \
+        #        and len(self.memory_idx) > 0 \
+        #        and len(self.memory) == len(self.memory_losses) \
+        #        and len(self.memory_losses) == len(self.memory_idx), "Lengths must be the same {}, {}, {}".format(len(self.memory), len(self.memory_losses), len(self.memory_idx))
 
     def get_batch(self, models, env_dim: int, num_actions: int = 3, batch_size: int = 10):
         if self.debug: print("ExperienceReplay::get_batch()")

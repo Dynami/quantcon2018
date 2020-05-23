@@ -336,12 +336,12 @@ class Game(object):
 
             dist = self.curr_idx - self.start_idx
             # factor = 1 if pnl > 0 else 0
-            penalty = self._penalty(dist, max_len=self.max_game_len)
+            penalty = self._penalty(dist, max_len=self.max_game_len, degree=6)
             if pnl > 0:
-                reward = pnl  # * (1 + penalty)
+                reward = pnl * (1 + penalty)
             else:
-                reward = pnl  # * (1 + penalty)
-            self.reward = scale(reward, min=-2.0, max=2.0, out_range=(-1, 1))
+                reward = pnl  # * (1 - penalty)
+            self.reward = scale(reward, min=-3.0, max=3.0, out_range=(-1, 1))
             if self.debug: print('Game::_get_reward()', pnl, dist, penalty, reward)
         else:
             self.reward = 0

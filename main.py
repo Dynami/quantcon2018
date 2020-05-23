@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 def run(debug=False):
-    train = 1
+    train = 0
 
     print('Start loading data')
     loader = DataLoader('data.txt')
@@ -31,7 +31,7 @@ def run(debug=False):
     if train:
         start_idx = 3000
         end_idx = 200000 # 500000
-        player.epoch = 1000 # 11500
+        player.epoch = 10000 # 11500
         player.run_mode = 'random'
     else:
         start_idx = 200000
@@ -43,7 +43,7 @@ def run(debug=False):
     player.batch_size = 100
     player.n_last_bars_in_state = 10
     player.lookback = 90
-    player.max_memory = 10000
+    player.max_memory = 500
     player.max_game_len = 6
     player.debug = False
     player.START_IDX = 3000
